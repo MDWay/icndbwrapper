@@ -5,4 +5,11 @@ package de.romjaki.icndbwrapper;
  */
 public abstract class GsonSchematic<T> {
 
+    public String type = "unknown_fail";
+
+    public boolean succeeded() {
+        return false;
+    }
+
+    public abstract T result();
 }

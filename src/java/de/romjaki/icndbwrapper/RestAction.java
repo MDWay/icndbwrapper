@@ -1,7 +1,11 @@
 package de.romjaki.icndbwrapper;
 
 import com.google.gson.Gson;
+import sun.misc.IOUtils;
 
+import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.Map;
 import java.util.function.Consumer;
 
@@ -12,33 +16,58 @@ public class RestAction<T> {
     private final String url;
     private final Map<String, String> parameters;
 
-    public RestAction(R emptySchematic, String relativeUrl, Map<String, String> parameters) {
+    public RestAction(GsonSchematic<T> emptySchematic, String relativeUrl, Map<String, String> parameters) {
         this.emptySchematic = emptySchematic;
         this.url = relativeUrl;
         this.parameters = parameters;
     }
 
-    public static String executeGet(String url, Map<String, String> parameters) {
-        return "";
+    public static String executeRequest(String url, Map<String, String> parameters, String method) throws IOException {
+        HttpURLConnection con = (HttpURLConnection) new URL(url).openConnection();
+        con.setRequestMethod(method);
+        con.setUseCaches(false);
+        parameters.forEach(con::addRequestProperty);
+        return String.valueOf(IOUtils.readFully(con.getInputStream(), -1, true));
     }
 
-    public void queue() {
-        queue(null);
+    public Thread queue() {
+        return queue(null);
     }
 
-    public void queue(Consumer<T> success) {
-        queue(success, null);
+    public Thread queue(Consumer<T> success) {
+        return queue(success, null);
     }
 
-    public void queue(Consumer<T> success, Consumer<T> fail) {
+    public Thread queue(Consumer<T> success, Consumer<T> fail) {
         Thread t = new Thread(() -> {
             Gson gson = new Gson();
-            R schematic =  gson.fromJson(executeGet(RestAction.this.url, RestAction.this.parameters), emptySchematic.getClass());
+            GsonSchematic<T> schematic = null;
+            try {
+                schematic = gson.fromJson(executeGet(RestAction.this.url, RestAction.this.parameters), emptySchematic.getClass());
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            if (schematic.succeeded()) {
+                success.accept(schematic.result());
+            }
         });
+        t.start();
+        return t;
     }
 
+    private String executeGet(String url, Map<String, String> parameters) throws IOException {
+        return executeRequest(url, parameters, "GET");
+    }
+
+    @SuppressWarnings({"unchecked"})
     public T complete() {
-        // TODO
+        try {
+            Object[] outside = new Object[1];
+            queue(a -> outside[0] = a).join();
+            return (T) outside[0];
+        } catch (InterruptedException e) {
+        }
+        return null;
     }
 
 }
