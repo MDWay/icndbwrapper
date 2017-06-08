@@ -1,12 +1,12 @@
 package de.romjaki.icndbwrapper;
 
 import com.google.gson.Gson;
-import sun.misc.IOUtils;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Map;
+import java.util.Scanner;
 import java.util.function.Consumer;
 
 
@@ -23,11 +23,13 @@ public class RestAction<T> {
     }
 
     public static String executeRequest(String url, Map<String, String> parameters, String method) throws IOException {
-        HttpURLConnection con = (HttpURLConnection) new URL(url).openConnection();
+        HttpURLConnection con = (HttpURLConnection) new URL(ICNDB.API_URL + url).openConnection();
         con.setRequestMethod(method);
         con.setUseCaches(false);
         parameters.forEach(con::addRequestProperty);
-        return String.valueOf(IOUtils.readFully(con.getInputStream(), -1, true));
+        Scanner s = new Scanner(con.getInputStream());
+        s.useDelimiter("\\A");
+        return s.next();
     }
 
     public Thread queue() {
